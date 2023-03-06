@@ -59,6 +59,7 @@ class ParquetSampleWriter:
     def __init__(
         self,
         shard_id,
+        shard_prefix,
         output_folder,
         save_caption,
         oom_shard_count,
@@ -98,6 +99,7 @@ class WebDatasetSampleWriter:
     def __init__(
         self,
         shard_id,
+        shard_prefix,
         output_folder,
         save_caption,
         oom_shard_count,
@@ -108,13 +110,19 @@ class WebDatasetSampleWriter:
         shard_name = "{shard_id:0{oom_shard_count}d}".format(  # pylint: disable=consider-using-f-string
             shard_id=shard_id, oom_shard_count=oom_shard_count
         )
+        if shard_prefix is not None:
+            shard_name = f"{shard_prefix:03d}" + shard_name
         self.shard_id = shard_id
-        fs, output_path = fsspec.core.url_to_fs(output_folder)
-        self.tar_fd = fs.open(f"{output_path}/{shard_name}.tar", "wb")
+        tmp_folder = "/tmp/img2dataset_data"
+        fs_tmp, tmp_path = fsspec.core.url_to_fs(tmp_folder)
+        self.tar_fd = fs_tmp.open(f"{tmp_path}/{shard_name}.tar", "wb")
         self.tarwriter = wds.TarWriter(self.tar_fd)
         self.save_caption = save_caption
-        self.buffered_parquet_writer = BufferedParquetWriter(output_folder + "/" + shard_name + ".parquet", schema, 100)
+        self.buffered_parquet_writer = BufferedParquetWriter(tmp_folder + "/" + shard_name + ".parquet", schema, 100)
         self.encode_format = encode_format
+        self.output_folder = output_folder
+        self.tmp_folder = tmp_folder
+        self.shard_name = shard_name
 
     def write(self, img_str, key, caption, meta):
         """write sample to tars"""
@@ -134,6 +142,13 @@ class WebDatasetSampleWriter:
         self.buffered_parquet_writer.close()
         self.tarwriter.close()
         self.tar_fd.close()
+        fs, output_path = fsspec.core.url_to_fs(self.output_folder)
+        tmp_tar = os.path.join(self.tmp_folder, f"{self.shard_name}.tar")
+        fs.put(tmp_tar, output_path + "/")
+        tmp_parquet = os.path.join(self.tmp_folder, f"{self.shard_name}.parquet")
+        fs.put(tmp_parquet, output_path + "/")
+        os.remove(tmp_tar)
+        os.remove(tmp_parquet)
 
 
 class TFRecordSampleWriter:
@@ -142,6 +157,7 @@ class TFRecordSampleWriter:
     def __init__(
         self,
         shard_id,
+        shard_prefix,
         output_folder,
         save_caption,
         oom_shard_count,
@@ -250,6 +266,7 @@ class FilesSampleWriter:
     def __init__(
         self,
         shard_id,
+        shard_prefix,
         output_folder,
         save_caption,
         oom_shard_count,

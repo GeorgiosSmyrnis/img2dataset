@@ -66,12 +66,14 @@ def download_image_with_retry(row, timeout, retries, user_agent_token, disallowe
     return key, None, err
 
 
-def compute_key(key, shard_id, oom_sample_per_shard, oom_shard_count):
+def compute_key(key, shard_id, oom_sample_per_shard, oom_shard_count, shard_prefix):
     true_key = (10**oom_sample_per_shard) * shard_id + key
     key_format = oom_sample_per_shard + oom_shard_count
     str_key = "{true_key:0{key_format}d}".format(  # pylint: disable=consider-using-f-string
         key_format=key_format, true_key=true_key
     )
+    if shard_prefix is not None:
+        str_key = f"{shard_prefix:03d}" + str_key
     return str_key
 
 
@@ -97,6 +99,7 @@ class Downloader:
         user_agent_token,
         disallowed_header_directives,
         blurring_bbox_col=None,
+        shard_prefix=None,
     ) -> None:
         self.sample_writer_class = sample_writer_class
         self.resizer = resizer
@@ -119,6 +122,7 @@ class Downloader:
             else {directive.strip().lower() for directive in disallowed_header_directives}
         )
         self.blurring_bbox_col = blurring_bbox_col
+        self.shard_prefix = shard_prefix
 
     def __call__(
         self,
@@ -193,6 +197,7 @@ class Downloader:
         # give schema to writer
         sample_writer = self.sample_writer_class(
             shard_id,
+            self.shard_prefix,
             self.output_folder,
             self.save_caption,
             self.oom_shard_count,
@@ -325,12 +330,22 @@ class Downloader:
                     img_stream.close()
                     del img_stream
 
-                    sample_writer.write(
-                        img,
-                        str_key,
-                        sample_data[caption_indice] if caption_indice is not None else None,
-                        meta,
-                    )
+                    for retries in range(5):
+                        try:
+                            sample_writer.write(
+                                img,
+                                str_key,
+                                sample_data[caption_indice] if caption_indice is not None else None,
+                                meta,
+                            )
+                            break
+                        except Exception as e:  # pylint: disable=broad-except
+                            if retries != 4:
+                                print("retrying to write to tarfile due to error:", e)
+                                time.sleep(1)
+                            else:
+                                raise e
+                            
                 except Exception as err:  # pylint: disable=broad-except
                     traceback.print_exc()
                     print(f"Sample {key} failed to download: {err}")
