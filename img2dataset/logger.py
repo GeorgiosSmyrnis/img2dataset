@@ -162,6 +162,7 @@ class StatusTableLogger(Logger):
 def write_stats(
     output_folder,
     shard_id,
+    shard_prefix,
     count,
     successes,
     failed_to_download,
@@ -186,6 +187,8 @@ def write_stats(
     shard_name = "{shard_id:0{oom_shard_count}d}".format(  # pylint: disable=consider-using-f-string
         shard_id=shard_id, oom_shard_count=oom_shard_count
     )
+    if shard_prefix is not None:
+        shard_name = f"{shard_prefix:03d}" + shard_name
     json_file = f"{output_path}/{shard_name}_stats.json"
     with fs.open(json_file, "w") as f:
         json.dump(stats, f, indent=4)

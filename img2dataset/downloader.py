@@ -218,7 +218,7 @@ class Downloader:
             ):
                 try:
                     _, sample_data = shard_to_dl[key]
-                    str_key = compute_key(key, shard_id, oom_sample_per_shard, self.oom_shard_count)
+                    str_key = compute_key(key, shard_id, oom_sample_per_shard, self.oom_shard_count, self.shard_prefix)
                     meta = {
                         # Skip columsn containing a the verification hash and only save the compute hash
                         **{
@@ -360,6 +360,7 @@ class Downloader:
         write_stats(
             self.output_folder,
             shard_id,
+            self.shard_prefix,
             count,
             successes,
             failed_to_download,

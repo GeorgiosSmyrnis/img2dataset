@@ -144,9 +144,9 @@ class WebDatasetSampleWriter:
         self.tar_fd.close()
         fs, output_path = fsspec.core.url_to_fs(self.output_folder)
         tmp_tar = os.path.join(self.tmp_folder, f"{self.shard_name}.tar")
-        fs.put(tmp_tar, output_path + "/")
+        fs.put(tmp_tar, output_path + "/" + f"{self.shard_name}.tar")
         tmp_parquet = os.path.join(self.tmp_folder, f"{self.shard_name}.parquet")
-        fs.put(tmp_parquet, output_path + "/")
+        fs.put(tmp_parquet, output_path + "/" + f"{self.shard_name}.parquet")
         os.remove(tmp_tar)
         os.remove(tmp_parquet)
 

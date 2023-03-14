@@ -126,7 +126,14 @@ def download(
 
     logger_process = LoggerProcess(output_folder, enable_wandb, wandb_project, config_parameters)
 
-    tmp_path = output_folder + "/_tmp"
+    tmp_folder = "/tmp/img2dataset_data/"
+    fs, tmp_dir = fsspec.core.url_to_fs(tmp_folder)
+    if fs.exists(tmp_dir):
+        fs.rm(tmp_dir, recursive=True)
+
+    fs.mkdir(tmp_dir)
+
+    tmp_path = tmp_folder + "/_tmp"
     fs, tmp_dir = fsspec.core.url_to_fs(tmp_path)
     if not fs.exists(tmp_dir):
         fs.mkdir(tmp_dir)
